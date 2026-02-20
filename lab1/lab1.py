@@ -2,7 +2,7 @@ import requests
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 1-3. Запит до Open-Elevation API та формування вузлів
+
 locations = [
     "48.164214,24.536044", "48.164983,24.534836", "48.165605,24.534068",
     "48.166228,24.532915", "48.166777,24.531927", "48.167326,24.530884",
@@ -28,7 +28,7 @@ n_points = len(results)
 print(f"Кількість вузлів: {n_points}")
 
 
-# 4. Обчислення кумулятивної відстані
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
@@ -47,12 +47,12 @@ for i in range(1, n_points):
     distances.append(distances[-1] + d)
 
 
-# 6-9. Знаходження коефіцієнтів кубічного сплайна методом прогонки
+
 def cubic_spline_coefficients(x, y):
     n = len(x) - 1
     h = np.diff(x)
 
-    # Формування тридіагональної матриці для c_i
+    
     alpha = np.zeros(n)
     beta = np.zeros(n)
     gamma = np.zeros(n)
@@ -64,7 +64,7 @@ def cubic_spline_coefficients(x, y):
         gamma[i] = h[i]
         delta[i] = 3 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1])
 
-    # Пряма прогонка
+   
     A = np.zeros(n)
     B = np.zeros(n)
     for i in range(1, n):
@@ -72,12 +72,12 @@ def cubic_spline_coefficients(x, y):
         A[i] = -gamma[i] / denominator
         B[i] = (delta[i] - alpha[i] * B[i - 1]) / denominator
 
-    # Зворотна прогонка
+    
     c = np.zeros(n + 1)
     for i in range(n - 1, 0, -1):
         c[i] = A[i] * c[i + 1] + B[i]
 
-    # Обчислення a, b, d
+    
     a = y[:-1]
     b = np.zeros(n)
     d = np.zeros(n)
@@ -97,7 +97,7 @@ def evaluate_spline(x_eval, x_nodes, a, b, c, d):
     return y_eval
 
 
-# 10-12. Побудова графіків для різної кількості вузлів
+
 plt.figure(figsize=(12, 8))
 plt.scatter(distances, elevations, color='red', zorder=5, label='Вихідні дані (API)')
 
@@ -105,7 +105,7 @@ nodes_variants = [10, 15, 20]
 colors = ['blue', 'green', 'orange']
 
 for nodes_count, color in zip(nodes_variants, colors):
-    # Вибираємо рівномірно розподілені вузли
+   
     indices = np.linspace(0, n_points - 1, nodes_count, dtype=int)
     x_sub = np.array(distances)[indices]
     y_sub = np.array(elevations)[indices]
@@ -124,7 +124,7 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-# Додаткове завдання 1: Характеристики маршруту
+
 print("\n--- Характеристики маршруту ---")
 print(f"Загальна довжина маршруту (м): {distances[-1]:.2f}")
 total_ascent = sum(max(elevations[i] - elevations[i - 1], 0) for i in range(1, n_points))
@@ -132,7 +132,7 @@ print(f"Сумарний набір висоти (м): {total_ascent:.2f}")
 total_descent = sum(max(elevations[i - 1] - elevations[i], 0) for i in range(1, n_points))
 print(f"Сумарний спуск (м): {total_descent:.2f}")
 
-# Додаткове завдання 2: Аналіз градієнта
+
 x_dense = np.linspace(distances[0], distances[-1], 500)
 a, b, c, d = cubic_spline_coefficients(np.array(distances), np.array(elevations))
 y_full = evaluate_spline(x_dense, np.array(distances), a, b, c, d)
@@ -142,7 +142,7 @@ print(f"Максимальний підйом (%): {np.max(grad_full):.2f}")
 print(f"Максимальний спуск (%): {np.min(grad_full):.2f}")
 print(f"Середній градієнт (%): {np.mean(np.abs(grad_full)):.2f}")
 
-# Додаткове завдання 3: Механічна енергія підйому
+
 mass = 80
 g = 9.81
 energy = mass * g * total_ascent
