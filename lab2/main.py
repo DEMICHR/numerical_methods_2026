@@ -122,7 +122,7 @@ def main():
         sim_coefs = divided_differences(x_sim_nodes, y_sim_nodes)
 
         # Обчислюємо похибку на густій сітці
-        errors = [abs(true_function(xi) - newton_polynomial(sim_coefs, x_sim_nodes, xi)) for xi in x_dense]
+        errors = [abs(true_function(xi) - newton_polynomial(sim_coefs,x_sim_nodes, xi)) for xi in x_dense]
         max_error = max(errors)
 
         print(f"Максимальна похибка для n={n} вузлів: {max_error:.2e}")
@@ -140,5 +140,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
