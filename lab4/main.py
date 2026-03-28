@@ -3,145 +3,130 @@ import math
 import matplotlib.pyplot as plt
 
 
-# Крок 1. Задані функції
-def M(t):
-#Функція вологості ґрунту
+# --- 1. Оголошення всіх функцій ---
+
+def moisture_level(t):
+    """Розрахунок поточної вологості ґрунту M(t)."""
     return 50 * np.exp(-0.1 * t) + 5 * np.sin(t)
 
 
-def exact_derivative(t):
-#Аналітична похідна dM/dt
+def deriv_analytical(t):
+    """Точне (аналітичне) значення похідної M'(t)."""
     return -5 * np.exp(-0.1 * t) + 5 * np.cos(t)
 
 
-# Центральна різниця для чисельного диференціювання
-def central_difference(func, x, h):
-    return (func(x + h) - func(x - h)) / (2 * h)
+def diff_central(f, x_val, step):
+    """Формула центральної різниці для чисельного диференціювання."""
+    return (f(x_val + step) - f(x_val - step)) / (2 * step)
 
 
-# Точка дослідження
-t0 = 1.0
-exact_val = exact_derivative(t0)
-print(f"Крок 1. Точне значення похідної в точці t0=1: {exact_val:.8f}")
+def calculate_aitken(d1, d2, d4):
+    """Обчислення за формулою Ейткена та оцінка порядку точності."""
+    num_aitken = d2 ** 2 - d4 * d1
+    den_aitken = 2 * d2 - (d4 + d1)
 
-#  Крок 2. Пошук оптимального кроку h
-# Створюємо масив значень h від 10^-20 до 10^3
-h_values = np.logspace(-20, 3, 1000)
-errors = []
-min_error = float('inf')
-optimal_h = None
+    # Запобіжник від ділення на нуль
+    aitken_val = num_aitken / den_aitken if den_aitken != 0 else float('inf')
 
-for h in h_values:
-    # Запобіжник від ділення на 0 при екстремально малих h
-    if h == 0: continue
+    num_order = d4 - d2
+    den_order = d2 - d1
+    est_p = (1 / math.log(2)) * math.log(abs(num_order / den_order)) if den_order != 0 else 0
 
-    num_der = central_difference(M, t0, h)
-    err = abs(num_der - exact_val)
-    errors.append(err)
+    return aitken_val, est_p
 
-    if err < min_error:
-        min_error = err
-        optimal_h = h
 
-print(f"\nКрок 2. Оптимальний крок h0: {optimal_h:.2e}")
-print(f"Досягнута точність R0: {min_error:.8e}")
+def plot_graphs(h_grid, err_collection, best_h, min_err):
+    """Побудова графіків вологості ґрунту та залежності похибки."""
+    # Створюємо одне полотно з двома графіками поруч (1 рядок, 2 колонки)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
-#  Кроки 3-6. Метод Рунге-Ромберга
-h_base = 10 ** (-3)  # Приймаємо h = 10^-3 згідно з методичкою
-print(f"\nКрок 3. Приймаємо h = {h_base}")
+    # --- Графік 1: Вологість ґрунту ---
+    t_values = np.linspace(0, 10, 500)  # Час від 0 до 10 умовних одиниць
+    m_values = moisture_level(t_values)
 
-der_h = central_difference(M, t0, h_base)
-der_2h = central_difference(M, t0, 2 * h_base)
+    ax1.plot(t_values, m_values, color='b', linewidth=2)
+    ax1.set_title("Зміна рівня вологості ґрунту з часом", fontsize=14)
+    ax1.set_xlabel("Час $t$", fontsize=12)
+    ax1.set_ylabel("Вологість $M(t)$", fontsize=12)
+    ax1.grid(True, linestyle="--", alpha=0.7)
 
-R1 = abs(der_h - exact_val)
-print(f"Крок 4-5. Похідна з кроком h: {der_h:.8f}, Похибка R1: {R1:.8e}")
+    # --- Графік 2: Залежність похибки від кроку ---
+    ax2.loglog(h_grid, err_collection, label="Залежність похибки $R(h)$", color='g', linewidth=2)
+    ax2.loglog(best_h, min_err, 'mo', markersize=8,
+               label=f'Оптимальний крок: $h_0 \\approx {best_h:.1e}$\nПохибка: $R_0 \\approx {min_err:.1e}$')
 
-# Формула Рунге-Ромберга
-der_RR = der_h + (der_h - der_2h) / 3
-R2 = abs(der_RR - exact_val)
-print(f"Крок 6. Рунге-Ромберг (уточнене): {der_RR:.8f}, Похибка R2: {R2:.8e}")
-print(f"Характер зміни похибки: Похибка зменшилась у {R1 / R2:.2f} разів порівняно з R1.")
+    ax2.set_title("Вплив розміру кроку $h$ на похибку", fontsize=14)
+    ax2.set_xlabel("Крок сітки $h$ (логарифмічна шкала)", fontsize=12)
+    ax2.set_ylabel("Абсолютна похибка $R$ (логарифмічна шкала)", fontsize=12)
+    ax2.grid(True, which="both", ls=":", alpha=0.8)
+    ax2.legend(fontsize=12)
 
-#  Крок 7. Метод Ейткена
-der_4h = central_difference(M, t0, 4 * h_base)
+    plt.tight_layout()  # Автоматично вирівнює відступи між графіками
+    plt.savefig('moisture_and_error_plot.png', dpi=300)
+    plt.show()
 
-# Формула Ейткена
-numerator_E = der_2h ** 2 - der_4h * der_h
-denominator_E = 2 * der_2h - (der_4h + der_h)
-der_Eitken = numerator_E / denominator_E
 
-# Оцінка порядку точності p
-numerator_p = der_4h - der_2h
-denominator_p = der_2h - der_h
-p_approx = (1 / math.log(2)) * math.log(abs(numerator_p / denominator_p))
+# --- 2. Головна логіка програми ---
 
-R3 = abs(der_Eitken - exact_val)
+def main():
+    # Задаємо точку для аналізу
+    target_t = 1.0
+    true_deriv = deriv_analytical(target_t)
+    print(f"Крок 1. Точне значення похідної в точці t0=1: {true_deriv:.8f}")
 
-print(f"\nКрок 7. Метод Ейткена (уточнене): {der_Eitken:.8f}")
-print(f"Оцінка порядку точності p: {p_approx:.2f}")
-print(f"Похибка R3: {R3:.8e}")
+    # Етап 2: Визначення оптимального кроку
+    h_grid = np.logspace(-20, 3, 1000)
+    h_grid = h_grid[h_grid != 0]  # Фільтруємо нулі
 
-# Висновки щодо режиму поливу
-print("\n--- Висновок щодо режиму поливу ---")
-if exact_val < 0:
-    print("Похідна від'ємна. Це означає, що швидкість зміни вологості падає (ґрунт висихає).")
-    print(
-        "Оскільки швидкість висихання становить близько -1.82 одиниць вологості за одиницю часу, системі автоматичного поливу слід готуватися до увімкнення, якщо поточна вологість наближається до критичного мінімуму.")
-else:
-    print("Похідна додатна. Ґрунт накопичує вологу.")
+    # Векторизоване обчислення (Pythonic way: без повільного for)
+    approx_derivs = diff_central(moisture_level, target_t, h_grid)
+    err_collection = np.abs(approx_derivs - true_deriv)
 
-# Задаємо функцію вологості та її точну похідну
-def M(t):
-    return 50 * np.exp(-0.1 * t) + 5 * np.sin(t)
+    idx_min = np.argmin(err_collection)
+    best_step = h_grid[idx_min]
+    lowest_err = err_collection[idx_min]
 
-def exact_derivative(t):
-    return -5 * np.exp(-0.1 * t) + 5 * np.cos(t)
+    print(f"\nКрок 2. Оптимальний крок h0: {best_step:.2e}")
+    print(f"Досягнута точність R0: {lowest_err:.8e}")
 
-# Точка дослідження
-t0 = 1.0
-exact_val = exact_derivative(t0)
+    # Етап 3-6: Застосування методу Рунге-Ромберга
+    base_step = 1e-3
+    print(f"\nКрок 3. Приймаємо h = {base_step}")
 
-#  Створюємо масив кроків h від 10^-20 до 10^3
-# np.logspace генерує числа, рівномірно розподілені в логарифмічній шкалі
-h_values = np.logspace(-20, 3, 500)
-errors = []
+    d1 = diff_central(moisture_level, target_t, base_step)
+    d2 = diff_central(moisture_level, target_t, 2 * base_step)
 
-#  Обчислюємо похибку для кожного h
-for h in h_values:
-    # Центральна різниця
-    num_der = (M(t0 + h) - M(t0 - h)) / (2 * h)
-    # Абсолютна похибка R = |y0'(h) - y'(x0)|
-    err = abs(num_der - exact_val)
-    errors.append(err)
+    err_R1 = abs(d1 - true_deriv)
+    print(f"Крок 4-5. Похідна з кроком h: {d1:.8f}, Похибка R1: {err_R1:.8e}")
 
-# Перетворюємо список у масив numpy для зручності
-errors = np.array(errors)
+    runge_romb_val = d1 + (d1 - d2) / 3
+    err_R2 = abs(runge_romb_val - true_deriv)
+    print(f"Крок 6. Рунге-Ромберг (уточнене): {runge_romb_val:.8f}, Похибка R2: {err_R2:.8e}")
+    print(f"Характер зміни похибки: Похибка зменшилась у {err_R1 / err_R2:.2f} разів порівняно з R1.")
 
-# Знаходимо індекс мінімальної похибки
-min_error_idx = np.argmin(errors)
-optimal_h = h_values[min_error_idx]
-min_error = errors[min_error_idx]
+    # Етап 7: Застосування методу Ейткена
+    d4 = diff_central(moisture_level, target_t, 4 * base_step)
 
-print(f"Оптимальний крок h0: {optimal_h:.2e}")
-print(f"Досягнута точність R0: {min_error:.2e}")
+    aitken_val, est_p = calculate_aitken(d1, d2, d4)
+    err_R3 = abs(aitken_val - true_deriv)
 
-# 4. Побудова графіка
-plt.figure(figsize=(10, 6))
+    print(f"\nКрок 7. Метод Ейткена (уточнене): {aitken_val:.8f}")
+    print(f"Оцінка порядку точності p: {est_p:.2f}")
+    print(f"Похибка R3: {err_R3:.8e}")
 
-# plt.loglog робить логарифмічний масштаб по обох осях
-plt.loglog(h_values, errors, label="Залежність похибки $R(h)$", color='b', linewidth=2)
+    # Аналіз результатів для системи поливу
+    print("\n--- Висновок щодо режиму поливу ---")
+    if true_deriv < 0:
+        print("Похідна від'ємна. Це означає, що швидкість зміни вологості падає (ґрунт висихає).")
+        print(
+            "Оскільки швидкість висихання становить близько -1.82 одиниць вологості за одиницю часу, системі автоматичного поливу слід готуватися до увімкнення, якщо поточна вологість наближається до критичного мінімуму.")
+    else:
+        print("Похідна додатна. Ґрунт накопичує вологу.")
 
-# Ставимо червону точку в місці мінімуму
-plt.loglog(optimal_h, min_error, 'ro', markersize=8,
-           label=f'Оптимальний крок: $h_0 \\approx {optimal_h:.1e}$\nПохибка: $R_0 \\approx {min_error:.1e}$')
+    # Побудова графіків
+    plot_graphs(h_grid, err_collection, best_step, lowest_err)
 
-# Оформлення графіка
-plt.title("Залежність похибки чисельного диференціювання від кроку $h$", fontsize=14)
-plt.xlabel("Крок сітки $h$ (логарифмічна шкала)", fontsize=12)
-plt.ylabel("Абсолютна похибка $R$ (логарифмічна шкала)", fontsize=12)
-plt.grid(True, which="both", ls="--", alpha=0.7) # Сітка для кращої читабельності
-plt.legend(fontsize=12)
 
-# Зберігаємо графік у файл (для звіту) або виводимо на екран
-plt.savefig('error_plot.png', dpi=300)
-plt.show()
+# --- 3. Точка входу ---
+if __name__ == "__main__":
+    main()
