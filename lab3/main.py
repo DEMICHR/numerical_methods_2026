@@ -1,9 +1,7 @@
 import csv
 import matplotlib.pyplot as plt
 
-
 filename = 'data.csv'
-
 
 sample_data = [
     ["Month", "Temp"],
@@ -89,7 +87,7 @@ def variance(y_true, y_approx):
     return sum((yt - ya) ** 2 for yt, ya in zip(y_true, y_approx)) / n
 
 # 3. Вибір оптимального ступеня полінома
-max_degree = 10
+max_degree = 20  # Змінено на 20 згідно із запитом
 variances = []
 all_coefficients = []
 
